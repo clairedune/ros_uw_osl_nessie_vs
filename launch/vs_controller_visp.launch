@@ -1,0 +1,11 @@
+<launch>
+
+ 	<!-- start UWSim -->
+		<arg name="scene" default="/home/dune/catkin_ws/src/ros_uw_osl_nessie_vs/scenes/nessie_redbox.xml" />
+		<node name="uwsim" pkg="uwsim" type="uwsim" args="--configfile $(arg scene)" output="screen" respawn="false" />
+
+ 	<!-- start visual servoing 
+		<node name="robot_visp" pkg="uw_vs" type="robot_visp" />-->
+	
+</launch>
+
