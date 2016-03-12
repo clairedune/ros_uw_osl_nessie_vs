@@ -39,4 +39,9 @@ target_link_libraries ( servoNessie4Point2DCamVelocity
 	${catkin_LIBRARIES} 
 	${VISP_LIBRARIES}
 )
+add_executable( findOrientedBoundingBoxe src/findOrientedBoundingBoxe.cpp )
+target_link_libraries ( findOrientedBoundingBoxe 
+	${catkin_LIBRARIES} 
+	${VISP_LIBRARIES}
+)
 
