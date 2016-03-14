@@ -15,6 +15,8 @@
 #include <visp/vpMeterPixelConversion.h>
 #include <visp/vpColVector.h>
 
+#include <imageProcessing/colorDetection.hpp>
+
 
 static const std::string TOPIC_IMG = "/camera_down_right/image_raw";
 int h_min = 8 ;
@@ -26,109 +28,53 @@ void on_trackbar( int, void* )
 {
 }
 
-cv::Rect findBoundingBoxe(const std::vector<std::vector<cv::Point> > &contours)
+void imageCallBack(const sensor_msgs::ImageConstPtr& msg) 
 {
-	cv::Rect bRect(0,0,0,0); 
-	double largest_area = 0.0; 
-	for( int i = 0; i< contours.size(); i++ )
+	try 
 	{
-		double a = contourArea( contours[i],false);  //  Find the area of contour
-		if(a>largest_area){
-			largest_area = a;
-			bRect        = boundingRect(contours[i]); // Find the bounding rectangle for biggest contour
-		}
-	}
-	
-	return bRect;
-}
-
-
-/*
-* author : Claire Dune
-* date   : 11/03/2016
-*
-*/
-cv::RotatedRect findLargestOrientedBoxe(const std::vector<std::vector<cv::Point> > &contours)
-{
-  /// Find the rotated rectangles the biggest contour
-  cv::RotatedRect minRect;
-  double largest_area=0.0; 
-  for( int i = 0; i < contours.size(); i++ )
-     { 
-       double area = cv::contourArea(contours[i],false);
-       if( area > largest_area )
-		{
-			largest_area = area;
-			minRect      = cv::minAreaRect( cv::Mat(contours[i]) );
-     	}
-     }
-  return minRect;
-}
-
-
-std::vector<std::vector<cv::Point> > findColorContour(cv::Mat src)
-{
-	cv::Mat srcHsv, imgMap;
-	std::vector<std::vector<cv::Point> > contours;
-
-	// from color to hsv
-	cv::cvtColor(src, srcHsv, cv::COLOR_BGR2HSV); 
-
-	// Select wished color
-	imgMap = cv::Mat::zeros( src.size(), src.type() );
-	cv::inRange(srcHsv, cv::Scalar(h_min,50,50), cv::Scalar(h_max,255,255), imgMap);
-	cv::imshow("imgMap", imgMap);
-	
-	// dilate the color
-	cv::erode(imgMap, imgMap, getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(m_e,m_e)));
-	cv::dilate(imgMap, imgMap, getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(m_d,m_d)));
-	cv::imshow("imgDilate", imgMap);
-
-	// Find contours
-	cv::findContours(imgMap.clone(), contours, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE);
-	
-return contours;	
-}
-
-
-
-void imageCallBack(const sensor_msgs::ImageConstPtr& msg) {
-	try {
-	//convert ROS image to CV image
-	cv::Mat img;
-	cv_bridge::CvImagePtr cv_ptr ;
-	cv_ptr   = cv_bridge::toCvCopy(msg, "bgr8");
-	img      = cv_ptr->image;
+		// use cv_bridge to convert ros image to opencv image
+		cv_bridge::CvImagePtr cv_ptr ;
+		cv_ptr   = cv_bridge::toCvCopy(msg, "bgr8");
+		
+		// build the opencv image
+		cv::Mat img;
+		img   = cv_ptr->image;
  	
-	
-	// detect red contours
-	std::vector<std::vector<cv::Point> > contours;
-    contours =  findColorContour(img);
+		// create images for temp displays
+		cv::Mat imgMap = img.clone();
+		cv::Mat imgMorpho = img.clone();
+	    
+		// detect contours of orange areas
+		std::vector<std::vector<cv::Point> > contours;
+		contours =  colorDetection::findColorContour( img, imgMap, imgMorpho, h_min, h_max, m_d, m_e);
    
-    // detect straight bounding boxe 	
-    cv::Rect bRect; // bounding rectangle of largest contour
-    bRect    = findBoundingBoxe(contours);
-	cv::RotatedRect rRect;
-	rRect    = findLargestOrientedBoxe(contours);    
-	
-	
-	//visualization
-	circle(img, cv::Point(0.5*(img.cols),0.5*(img.rows)), 3, cv::Scalar(255,255,355), 1, 8);
-	cv::rectangle(img, bRect, cv::Scalar(0,255,0), 1, 4); // draw bRect
-	//cv::rectangle(img, rRect, cv::Scalar(0,255,255), 1, 4); // draw bRect
-	for( int i = 0; i < contours.size(); i++ )
-    {
-		cv::drawContours(img, contours, i, cv::Scalar(50*i,50*i,0));
-	}
-	cv::Point2f rect_points[4]; 
-	rRect.points( rect_points );
-    for( int j = 0; j < 4; j++ )
-          cv::line( img, rect_points[j], rect_points[(j+1)%4], cv::Scalar(255,0,0), 1, 8 );
-	cv::imshow("view", img);
-	cv::waitKey(10);
+		// detect straight bounding boxe 	
+		cv::Rect bRect; // bounding rectangle of largest contour
+		bRect    = colorDetection::findBoundingBoxe(contours);
+		cv::RotatedRect rRect;
+		rRect    = colorDetection::findOrientedBoxe(contours);    
 
-    } 
-    catch (cv_bridge::Exception& e) {
+		//visualization
+		circle(img, cv::Point(0.5*(img.cols),0.5*(img.rows)), 3, cv::Scalar(255,255,355), 1, 8);
+		cv::rectangle(img, bRect, cv::Scalar(0,255,0), 1, 4); // draw bRect
+		for( int i = 0; i < contours.size(); i++ )
+		{
+			cv::drawContours(img, contours, i, cv::Scalar(50*i,50*i,0));
+		}
+		cv::Point2f rect_points[4]; 
+		rRect.points( rect_points );
+		for( int j = 0; j < 4; j++ )
+			cv::line( img, rect_points[j], rect_points[(j+1)%4], cv::Scalar(255,0,0), 1, 8 );
+		
+		
+		cv::imshow("imgMap", imgMap);
+		cv::imshow("imgDilate", imgMorpho);
+		cv::imshow("view", img);
+		//cv::waitKey(10);
+
+	} 
+    catch (cv_bridge::Exception& e) 
+    {
         ROS_ERROR("Could not convert from '%s' to 'bgr8'.",
         msg->encoding.c_str());
     }

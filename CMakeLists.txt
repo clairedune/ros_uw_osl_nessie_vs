@@ -22,25 +22,40 @@ generate_messages(
   	std_msgs
 )
 catkin_package(
+	INCLUDE_DIRS
+		include
+
 	DEPENDS
-	VISP
-	CATKIN_DEPENDS message_runtime
+		VISP
+		CATKIN_DEPENDS message_runtime
 )
+
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
-# include_directories(include)
+include_directories(include)
+
 include_directories(
 	${catkin_INCLUDE_DIRS}
   	${VISP_INCLUDE_DIRS}
 )
 
+## Declare a cpp library
+add_library(imageProcessing
+  include/imageProcessing/colorDetection.hpp
+  src/imageProcessing/colorDetection.cpp
+)
+
+
+
 add_executable( servoNessie4Point2DCamVelocity src/servoNessie4Point2DCamVelocity.cpp )
 target_link_libraries ( servoNessie4Point2DCamVelocity 
+	imageProcessing
 	${catkin_LIBRARIES} 
 	${VISP_LIBRARIES}
 )
 add_executable( findOrientedBoundingBoxe src/findOrientedBoundingBoxe.cpp )
 target_link_libraries ( findOrientedBoundingBoxe 
+	imageProcessing
 	${catkin_LIBRARIES} 
 	${VISP_LIBRARIES}
 )
